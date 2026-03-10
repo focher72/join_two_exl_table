@@ -56,15 +56,33 @@ def read_csv_file(file_path):
         exit(1)
 
 
-def validate_join_column(headers_a, headers_b, join_column):
-    """Проверка наличия указанной колонки для соединения в обоих файлах"""
-    if join_column not in headers_a:
-        print(f'Ошибка: Колонка "{join_column}" не найдена в table_a.csv')
+def validate_join_column(headers_a, headers_b, join_column, file_a_path, file_b_path):
+    """Проверка наличия указанной колонки для соединения в обоих файлах (регистронезависимо)"""
+    # Поиск колонки в headers_a с учетом регистра
+    column_a = None
+    for header in headers_a:
+        if header.lower() == join_column.lower():
+            column_a = header
+            break
+    
+    if column_a is None:
+        print(f'Ошибка: Колонка "{join_column}" не найдена в файле {file_a_path}')
         exit(1)
     
-    if join_column not in headers_b:
-        print(f'Ошибка: Колонка "{join_column}" не найдена в table_b.csv')
+    # Поиск колонки в headers_b с учетом регистра
+    column_b = None
+    for header in headers_b:
+        if header.lower() == join_column.lower():
+            column_b = header
+            break
+    
+    if column_b is None:
+        print(f'Ошибка: Колонка "{join_column}" не найдена в файле {file_b_path}')
         exit(1)
+    
+    # Возвращаем найденные названия колонок из обоих файлов
+    print(f'Найдена колонка для соединения: "{column_a}"')
+    return column_a, column_b
 
 
 def generate_output_filename():
@@ -73,26 +91,26 @@ def generate_output_filename():
     return f"merge_csv_{current_date}.csv"
 
 
-def merge_data(data_a, data_b, headers_a, headers_b, join_column):
+def merge_data(data_a, data_b, headers_a, headers_b, join_column_a, join_column_b):
     """Объединение данных из двух таблиц по указанной колонке"""
     # Создаем словарь для хранения записей из table_b по указанной колонке
     # Ключ - значение join_column, значение - список записей с этим значением
     table_b_by_column = {}
     
     for row in data_b:
-        column_value = row[join_column]
+        column_value = row[join_column_b]
         if column_value not in table_b_by_column:
             table_b_by_column[column_value] = []
         table_b_by_column[column_value].append(row)
     
     # Объединяем заголовки
-    all_headers = headers_a + [col for col in headers_b if col != join_column]
+    all_headers = headers_a + [col for col in headers_b if col != join_column_b]
     
     # Объединяем данные
     merged_data = []
     
     for row_a in data_a:
-        column_value = row_a[join_column]
+        column_value = row_a[join_column_a]
         
         if column_value in table_b_by_column:
             # Если есть записи в table_b для этого значения колонки
@@ -104,7 +122,7 @@ def merge_data(data_a, data_b, headers_a, headers_b, join_column):
                     merged_row[col] = row_a[col]
                 # Добавляем колонки из table_b (кроме join_column)
                 for col in headers_b:
-                    if col != join_column:
+                    if col != join_column_b:
                         merged_row[col] = row_b[col]
                 merged_data.append(merged_row)
         else:
@@ -116,7 +134,7 @@ def merge_data(data_a, data_b, headers_a, headers_b, join_column):
                 merged_row[col] = row_a[col]
             # Добавляем пустые колонки из table_b (кроме join_column)
             for col in headers_b:
-                if col != join_column:
+                if col != join_column_b:
                     merged_row[col] = ''
             merged_data.append(merged_row)
     
@@ -152,10 +170,10 @@ def main():
     headers_b, data_b = read_csv_file(args.table_b)
     
     # Проверка наличия указанной колонки для соединения
-    validate_join_column(headers_a, headers_b, args.join_column)
+    join_column_a, join_column_b = validate_join_column(headers_a, headers_b, args.join_column, args.table_a, args.table_b)
     
     print("Объединение данных...")
-    merged_data, all_headers = merge_data(data_a, data_b, headers_a, headers_b, args.join_column)
+    merged_data, all_headers = merge_data(data_a, data_b, headers_a, headers_b, join_column_a, join_column_b)
     
     # Генерация имени выходного файла
     output_filename = generate_output_filename()
